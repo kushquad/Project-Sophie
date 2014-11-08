@@ -10,7 +10,7 @@ def tokenize(string):
     finlist = []
     for token in initlist:
         if(not token==''):
-            finlist.append(token)
+            finlist.append(token.lower())
     return finlist
 
 def clean(string):
@@ -46,10 +46,14 @@ def train(prompt,response):
     promptlist = tokenize(clean(prompt))
     l = len(promptlist)
     for word in promptlist:
-        try:
-            responsefrequencytable[word][response]+=1.0/l
-        except KeyError:
-                responsefrequencytable[word] = {response:0}
+        if(word in responsefrequencytable):
+            if(response in responsefrequencytable[word]):
+                responsefrequencytable[word][response]+=1.0/l
+            else:
+                responsefrequencytable[word]=dict(
+                responsefrequencytable[word].items()+{response:1.0/l}.items())
+        else:
+                responsefrequencytable[word] = {response:1.0/l}
                 
 def fetchResponse(prompt):
     promptlist = tokenize(clean(prompt))
@@ -58,20 +62,23 @@ def fetchResponse(prompt):
     responselist = []
     for word in promptlist:
         probsum = 0
+        if word not in responsefrequencytable:
+            responsefrequencytable[word] = {"":0}
         for response in responsefrequencytable[word]:
             val = responsefrequencytable[word][response]
             probsum += responsefrequencytable[word][response]
             responselist.append(response)
             cfd[response] = {word:val}
         cfdsums[word] = probsum
-
+            
     responselist = list(set(responselist))
     responsevalues = []
     for response in responselist:
         responsevaluetemp = 0
         for word in cfd[response]:
             val = cfd[response][word]
-            responsevaluetemp += cfdsums[word]*val
+            if(not cfdsums[word]==0):
+                responsevaluetemp += val/cfdsums[word]
         responsevalues.append(responsevaluetemp)
 
     maxi = -1
@@ -80,7 +87,17 @@ def fetchResponse(prompt):
         if(responsevalues[i]>maxi):
             maxi = responsevalues[i]
             idx = i
-    return responselist[i]
+
+    print cfd
+    print cfdsums
+    print responselist
+    print responsevalues
+
+    if(responselist[i]==""):
+        return "I have no response to that."
+    else:
+        return responselist[i]
+    
 
 flag = False
 istrainingmode = True
@@ -99,6 +116,7 @@ while(not flag):
         print "Response >> ",
         response = raw_input()
         train(prompt,response)
+        print responsefrequencytable
     else:
         print "Query >> ",
         prompt = raw_input()
@@ -110,4 +128,5 @@ while(not flag):
             continue
         if(prompt=="exit"):
             break
+        print "Sophie >> ",
         print fetchResponse(prompt)
