@@ -2,6 +2,18 @@
     
 responsefrequencytable = {"":{"":0}}
 
+def simulatetraining():
+    trainingset = open("QueryResponseTrainingSet2.txt",'r')
+    count = 0
+    for line in trainingset:
+        count += 1
+        if(count%3==1):
+            prompt = line 
+        elif(count%3==2):
+            response = line
+        else:
+            train(prompt, response)
+
 def tokenize(string):
     ''' Splits cleaned input string only by spaces for now, also excess
         spaces are removed.'''
@@ -44,14 +56,16 @@ def clean(string):
 #Prompt and response are given as strings
 def train(prompt,response):
     promptlist = tokenize(clean(prompt))
+    response = response.rstrip()
     l = len(promptlist)
     for word in promptlist:
         if(word in responsefrequencytable):
             if(response in responsefrequencytable[word]):
                 responsefrequencytable[word][response]+=1.0/l
             else:
-                responsefrequencytable[word]=dict(
-                responsefrequencytable[word].items()+{response:1.0/l}.items())
+                responsefrequencytable[word][response]=1.0/l
+                #dict(
+                #responsefrequencytable[word].items()+{response:1.0/l}.items())
         else:
                 responsefrequencytable[word] = {response:1.0/l}
                 
@@ -68,39 +82,46 @@ def fetchResponse(prompt):
             val = responsefrequencytable[word][response]
             probsum += responsefrequencytable[word][response]
             responselist.append(response)
-            cfd[response] = {word:val}
+            if(not response=="" and response in cfd):
+                cfd[response][word] = val
+                #dict(cfd[response].items()+{word:val}.items())
+            else:
+                cfd[response] = {word:val}
         cfdsums[word] = probsum
             
     responselist = list(set(responselist))
-    responsevalues = []
+    responsedict = {}
+    
     for response in responselist:
         responsevaluetemp = 0
         for word in cfd[response]:
             val = cfd[response][word]
             if(not cfdsums[word]==0):
                 responsevaluetemp += val/cfdsums[word]
-        responsevalues.append(responsevaluetemp)
+        responsedict[response] = responsevaluetemp
 
-    maxi = -1
-    idx = 0
-    for i in xrange(0,len(responsevalues)):
-        if(responsevalues[i]>maxi):
-            maxi = responsevalues[i]
-            idx = i
+    maxval = -1
+    tempstring = ""
+    for response in responsedict:
+        if(responsedict[response]>maxval):
+            maxval = responsedict[response]
+            tempstring = response
 
-    print cfd
-    print cfdsums
-    print responselist
-    print responsevalues
-
-    if(responselist[i]==""):
+    #print cfd
+    #print cfdsums
+    #print responselist
+    #print responsedict
+    
+    if(tempstring==""):
         return "I have no response to that."
     else:
-        return responselist[i]
+        return tempstring
     
 
+simulatetraining()
+#print responsefrequencytable
 flag = False
-istrainingmode = True
+istrainingmode = False
 while(not flag):
     if(istrainingmode):
         print "Train >> ",
